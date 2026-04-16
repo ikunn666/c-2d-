@@ -119,7 +119,9 @@ GENERATED :=
 OBJECTS :=
 
 GENERATED += $(OBJDIR)/main.o
+GENERATED += $(OBJDIR)/player.o
 OBJECTS += $(OBJDIR)/main.o
+OBJECTS += $(OBJDIR)/player.o
 
 # Rules
 # #############################################
@@ -184,6 +186,9 @@ endif
 # #############################################
 
 $(OBJDIR)/main.o: src/main.cpp
+	@echo "$(notdir $<)"
+	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
+$(OBJDIR)/player.o: src/player.cpp
 	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
