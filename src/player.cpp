@@ -1,4 +1,5 @@
 #include "player.h"
+#include <math.h>
 
 // 构造函数
 Player::Player(float x, Color c)
@@ -9,19 +10,53 @@ Player::Player(float x, Color c)
     health = 100.0f;
     isGrounded = false;
     direction = 1;
-    isAttacking = false;
-    attackTimer = 0.0f;
+    currentState = IDLE;
     attackBox = {0, 0, 0, 0};
+    stateTimer = 0.0f;     // 状态计时器
+    hitRegistered = false; // 攻击伤害注册
+    canCancel = true;      // 是否可以取消当前状态
 }
 
 // 物理逻辑
 void Player::Update(float gravity, float floorY)
 {
+    // 状态计时器更新
+    if (stateTimer > 0)
+    {
+        stateTimer -= GetFrameTime();
+    }
+
+    // 状态转换逻辑
+    switch (currentState)
+    {
+    case ATTACK:
+        if (stateTimer <= 0)
+            currentState = IDLE;
+        break;
+    case HURT:
+        if (stateTimer <= 0)
+            currentState = IDLE;
+        break;
+    case KONCKEDDOWN:
+        if (stateTimer <= 0)
+            currentState = IDLE;
+        break;
+    case KONCKEDUP:
+        if (stateTimer <= 0)
+            currentState = IDLE;
+        break;
+    default:
+        break;
+    }
+    // 物理系统
+    float friction = isGrounded ? 0.6f : 0.98f; // 地面摩擦力较大，空中摩擦力较小
+    speed.x *= friction;
+    if (fabs(speed.x) < 0.1f)
+        speed.x = 0; // 小速度归零
+
     // 重力逻辑
     if (!isGrounded)
-    {
         speed.y += gravity;
-    }
 
     // 位置更新
     rect.x += speed.x;
@@ -49,35 +84,38 @@ void Player::Update(float gravity, float floorY)
         rect.x = GetScreenWidth() - rect.width;
     }
 
-    // 攻击计时
-    if (isAttacking)
-    {
-        attackTimer -= GetFrameTime();
-        if (attackTimer <= 0)
-        {
-            isAttacking = false;
-        }
-    }
     // 计算攻击框
-    if (direction == 1)
+    if (currentState == ATTACK && stateTimer > 0.05f && stateTimer < 0.15f)
     {
-        attackBox = {rect.x + rect.width, rect.y, 30, 20};
+        float attackBoxWidth = 30;
+        attackBox = {(direction == 1) ? rect.x + rect.width : rect.x - attackBoxWidth, rect.y + 10, attackBoxWidth, 30};
     }
     else
     {
-        attackBox = {rect.x - 30, rect.y, 30, 20};
+        attackBox = {0, 0, 0, 0};
     }
+}
+
+//
+void Player::TakeDamage(float damage, float kX, float kY)
+{
+    health -= damage;
+    currentState = HURT;
+    stateTimer = 0.5f; // 受伤状态持续0.5秒
+    speed.x = kX;
+    speed.y = kY;
 }
 
 // 绘制角色
 void Player::Draw()
 {
-    DrawRectangleRec(rect, color);
+    Color displayColor = (currentState == HURT) ? RED : color;
+    DrawRectangleRec(rect, displayColor);
 
     // 绘制攻击框（调试用）
-    if (isAttacking)
+    if (attackBox.width > 0)
     {
-        DrawRectangleRec(attackBox, Fade(RED, 0.5f));
+        DrawRectangleRec(attackBox, Fade(RED, 0.6f));
     }
 
     // 绘制血条
@@ -88,30 +126,46 @@ void Player::Draw()
 // 输入处理
 void Player::HandleInput(int keyUp, int keyLeft, int keyRight, int keyAttack)
 {
+    // 优先级1：受击、击倒、被击飞、死亡时无法控制
+    if (currentState == HURT || currentState == KONCKEDDOWN || currentState == KONCKEDUP || currentState == DEAD)
+    {
+        return;
+    }
+    // 优先级2：攻击状态不能移动
+    if (currentState == ATTACK)
+        return;
 
-    speed.x = 0;
+    // 移动
     if (IsKeyDown(keyLeft))
     {
-        speed.x = -5;
+        speed.x = -6;
         direction = -1;
+        currentState = MOVE;
     }
-    if (IsKeyDown(keyRight))
+    else if (IsKeyDown(keyRight))
     {
-        speed.x = 5;
+        speed.x = 6;
         direction = 1;
+        currentState = MOVE;
+    }
+    else if (isGrounded)
+    {
+        currentState = IDLE;
     }
 
-    // 跳跃必须在地板上
+    // 跳跃
     if (IsKeyPressed(keyUp) && isGrounded)
     {
-        speed.y = -12;
+        speed.y = -14;
         isGrounded = false;
+        currentState = JUMP;
     }
 
     // 攻击
-    if (IsKeyPressed(keyAttack) && !isAttacking)
+    if (IsKeyPressed(keyAttack))
     {
-        isAttacking = true;
-        attackTimer = 0.2f; // 攻击持续时间0.2秒
+        currentState = ATTACK;
+        stateTimer = 0.3f;     // 攻击状态持续0.3秒
+        hitRegistered = false; // 重置攻击注册
     }
 }

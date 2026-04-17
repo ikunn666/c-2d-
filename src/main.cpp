@@ -48,13 +48,21 @@ int main()
 			p2.Update(gravity, floorY);
 
 			// 碰撞检测
-			if (p1.isAttacking && CheckCollisionRecs(p1.attackBox, p2.rect))
+			if (p1.currentState == ATTACK && !p1.hitRegistered)
 			{
-				p2.health -= 0.5f; // 每帧扣除0.5血(0.2秒*60帧=12血)
+				if (CheckCollisionRecs(p1.attackBox, p2.rect))
+				{
+					p2.TakeDamage(10, p1.direction * 10.0f, -0.5f);
+					p1.hitRegistered = true;
+				}
 			}
-			if (p2.isAttacking && CheckCollisionRecs(p2.attackBox, p1.rect))
+			if (p2.currentState == ATTACK && !p2.hitRegistered)
 			{
-				p1.health -= 0.5f;
+				if (CheckCollisionRecs(p2.attackBox, p1.rect))
+				{
+					p1.TakeDamage(10, p2.direction * 10.0f, -0.5f);
+					p2.hitRegistered = true;
+				}
 			}
 
 			// 检查游戏结束
